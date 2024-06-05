@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.woodcutting;
 
 import net.runelite.api.GameObject;
+import net.runelite.api.ObjectID;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -11,9 +12,11 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingWalkBack;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class AutoWoodcuttingScript extends Script {
@@ -41,11 +44,7 @@ public class AutoWoodcuttingScript extends Script {
                 if (Rs2Inventory.isFull()) {
                     switch(config.resetOptions()){
                         case DROP:
-                            if (config.hasAxeInventory()) {
-                                Rs2Inventory.dropAll(x -> x.slot > 0);
-                            } else {
-                                Rs2Inventory.dropAll();
-                            }
+                            Rs2Inventory.dropAll(config.TREE().getLog());
                             break;
                         case BANK:
                             boolean reachedDestination = Rs2Bank.walkToBank();
@@ -66,11 +65,12 @@ public class AutoWoodcuttingScript extends Script {
                             walkBack(config);
                             break;
                         case FIREMAKE:
-                            if (config.hasAxeInventory()) {
-
-                            } else {
-
+                            do {
+                                sleepUntil(() -> burnLog(config));
                             }
+                            while (Rs2Inventory.contains(config.TREE().getLog()));
+
+                            walkBack(config);
                             break;
                     }
 
@@ -89,16 +89,25 @@ public class AutoWoodcuttingScript extends Script {
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
-        }, 0, 500, TimeUnit.MILLISECONDS);
+        }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
     }
 
-    private void findOpenTile() {
-
-    }
-
-    private void burnLog() {
-
+    private boolean burnLog(AutoWoodcuttingConfig config) {
+        List<WorldPoint> worldPoints = Rs2Tile.getWalkableTilesAroundPlayer(1);
+        for (int i = 0; i <= worldPoints.size(); i++) {
+            if (Rs2GameObject.findObject(ObjectID.FIRE_26185, worldPoints.get(i)) != null){ continue; }
+            Rs2Walker.walkTo(worldPoints.get(i));
+            int finalI = i;
+            sleepUntil(() -> Rs2Player.getWorldLocation().equals(worldPoints.get(finalI)));
+            if(Rs2GameObject.findObjectByLocation(Rs2Player.getWorldLocation()) == null) {
+                Rs2Inventory.use("tinderbox");
+                sleep(Random.random(150,300));
+                Rs2Inventory.use(config.TREE().getLog());
+                sleepUntil(() -> Microbot.getClient().getLocalPlayer().getPoseAnimation() != 733);
+            }
+        }
+        return true;
     }
 
     private void walkBack(AutoWoodcuttingConfig config) {
