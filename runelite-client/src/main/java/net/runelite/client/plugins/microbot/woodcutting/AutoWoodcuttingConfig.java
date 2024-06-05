@@ -4,7 +4,9 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingResetOptions;
 import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingWalkBack;
 
 @ConfigGroup("Woodcutting")
 public interface AutoWoodcuttingConfig extends Config {
@@ -60,6 +62,50 @@ public interface AutoWoodcuttingConfig extends Config {
             section = generalSection
     )
     default boolean hopWhenPlayerDetected()
+    {
+        return false;
+    }
+
+    @ConfigSection(
+            name = "Reset",
+            description = "Options for clearing logs from inventory",
+            position = 1,
+            closedByDefault = true
+    )
+    String resetSection = "reset";
+
+    @ConfigItem(
+            keyName = "ItemAction",
+            name = "Item Action",
+            description = "Task to perform with logs",
+            position = 0,
+            section = resetSection
+    )
+    default WoodcuttingResetOptions resetOptions()
+    {
+        return WoodcuttingResetOptions.DROP;
+    }
+
+    @ConfigItem(
+            keyName = "WalkBack",
+            name = "Walk Back",
+            description = "Walk back the initial spot or last cut down",
+            position = 1,
+            section = resetSection
+    )
+    default WoodcuttingWalkBack walkBack()
+    {
+        return WoodcuttingWalkBack.LAST_LOCATION;
+    }
+
+    @ConfigItem(
+            keyName = "RandomTile",
+            name = "Randomize Return Tile",
+            description = "Tile that you return to will be randomized by 2 tiles",
+            position = 2,
+            section = resetSection
+    )
+    default boolean randomReturnTile()
     {
         return false;
     }
