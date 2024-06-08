@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.woodcutting;
 
+import net.runelite.api.AnimationID;
 import net.runelite.api.GameObject;
 import net.runelite.api.ObjectID;
 import net.runelite.api.coords.WorldPoint;
@@ -37,6 +38,7 @@ public class AutoWoodcuttingScript extends Script {
                     Rs2Player.logoutIfPlayerDetected(1, 10);
                     return;
                 }
+
 
                 if (Rs2Equipment.isWearing("Dragon axe"))
                     Rs2Combat.setSpecState(true, 1000);
@@ -106,7 +108,7 @@ public class AutoWoodcuttingScript extends Script {
         sleep(Random.random(300,600));
         Rs2Inventory.use(config.TREE().getLog());
         // Rs2Player.waitForAnimation(12000);
-        sleepUntil(() -> Microbot.getClient().getLocalPlayer().getPoseAnimation() != 733, 12000);
+        sleepUntil(() -> Microbot.getClient().getLocalPlayer().getPoseAnimation() != AnimationID.FIREMAKING, 12000);
         return true;
     }
 
