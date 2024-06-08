@@ -66,7 +66,7 @@ public class AutoWoodcuttingScript extends Script {
                             break;
                         case FIREMAKE:
                             do {
-                                sleepUntil(() -> burnLog(config));
+                               sleepUntil(() -> burnLog(config));
                             }
                             while (Rs2Inventory.contains(config.TREE().getLog()));
 
@@ -93,21 +93,46 @@ public class AutoWoodcuttingScript extends Script {
         return true;
     }
 
+    /*
+        TODO: fix PoseAnimation Check to ensure next firemake starts when the first one finishes or spams fires
+     */
     private boolean burnLog(AutoWoodcuttingConfig config) {
-        List<WorldPoint> worldPoints = Rs2Tile.getWalkableTilesAroundPlayer(1);
-        for (int i = 0; i <= worldPoints.size(); i++) {
-            if (Rs2GameObject.findObject(ObjectID.FIRE_26185, worldPoints.get(i)) != null){ continue; }
-            Rs2Walker.walkTo(worldPoints.get(i));
-            int finalI = i;
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(worldPoints.get(finalI)));
-            if(Rs2GameObject.findObjectByLocation(Rs2Player.getWorldLocation()) == null) {
-                Rs2Inventory.use("tinderbox");
-                sleep(Random.random(150,300));
-                Rs2Inventory.use(config.TREE().getLog());
-                sleepUntil(() -> Microbot.getClient().getLocalPlayer().getPoseAnimation() != 733);
+        if (Rs2Player.isStandingOnObject()){
+            WorldPoint fireSpot = fireSpot(3);
+            Rs2Walker.walkTo(fireSpot);
+            sleepUntil(() -> Rs2Player.getWorldLocation().equals(fireSpot));
+        }
+        Rs2Inventory.use("tinderbox");
+        sleep(Random.random(300,600));
+        Rs2Inventory.use(config.TREE().getLog());
+        // Rs2Player.waitForAnimation(12000);
+        sleepUntil(() -> Microbot.getClient().getLocalPlayer().getPoseAnimation() != 733, 12000);
+        return true;
+    }
+
+    private WorldPoint fireSpot(int distance) {
+        List<WorldPoint> worldPoints = Rs2Tile.getWalkableTilesAroundPlayer(distance);
+
+        for(WorldPoint walkablePoint : worldPoints) {
+            if (doesFireExists(walkablePoint) || (Rs2GameObject.getGameObject(walkablePoint) != null)) { continue; }
+            return walkablePoint;
+        }
+
+        fireSpot(distance+1);
+
+        return null;
+    }
+
+    private boolean doesFireExists(WorldPoint worldPoint) {
+        List<GameObject> gameObjectsWithinDistance = Rs2GameObject.getGameObjectsWithinDistance(1, worldPoint);
+        if(gameObjectsWithinDistance.isEmpty()) { return false; }
+
+        for(GameObject gameObject : gameObjectsWithinDistance) {
+            if ((gameObject.getId() == ObjectID.FIRE_26185) && gameObject.getWorldLocation() == worldPoint){
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     private void walkBack(AutoWoodcuttingConfig config) {
