@@ -1,9 +1,6 @@
 package net.runelite.client.plugins.microbot.util.player;
 
-import net.runelite.api.Player;
-import net.runelite.api.Skill;
-import net.runelite.api.VarPlayer;
-import net.runelite.api.Varbits;
+import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.VarbitChanged;
@@ -13,6 +10,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.globval.VarbitValues;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Item;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
@@ -21,6 +19,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import java.awt.*;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -285,5 +284,10 @@ public class Rs2Player {
 
     public static boolean hasPrayerPoints() {
         return Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) > 0;
+    }
+
+    public static boolean isStandingOnObject(){
+        WorldPoint playerPoint = getWorldLocation();
+        return Rs2GameObject.getGameObject(playerPoint) != null;
     }
 }
