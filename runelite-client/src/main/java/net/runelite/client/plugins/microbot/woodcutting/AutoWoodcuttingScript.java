@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.woodcutting;
 
 import net.runelite.api.AnimationID;
 import net.runelite.api.GameObject;
-import net.runelite.api.ObjectID;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -39,19 +38,18 @@ public class AutoWoodcuttingScript extends Script {
                     return;
                 }
 
-
                 if (Rs2Equipment.isWearing("Dragon axe"))
                     Rs2Combat.setSpecState(true, 1000);
                 if (Microbot.isMoving() || Microbot.isAnimating() || Microbot.pauseAllScripts) return;
                 if (Rs2Inventory.isFull()) {
-                    switch(config.resetOptions()){
+                    switch (config.resetOptions()) {
                         case DROP:
                             Rs2Inventory.dropAll(config.TREE().getLog());
                             break;
                         case BANK:
                             boolean reachedDestination = Rs2Bank.walkToBank();
                             if (!reachedDestination) {
-                                sleepUntil(() -> Rs2Walker.isNear());
+                                sleepUntil(() -> Rs2Player.getWorldLocation() == Rs2Bank.getNearestBank().getWorldPoint());
                             }
 
                             if (!Rs2Bank.isOpen()) {
@@ -68,7 +66,7 @@ public class AutoWoodcuttingScript extends Script {
                             break;
                         case FIREMAKE:
                             do {
-                               sleepUntil(() -> burnLog(config));
+                                sleepUntil(() -> burnLog(config));
                             }
                             while (Rs2Inventory.contains(config.TREE().getLog()));
 
@@ -79,75 +77,70 @@ public class AutoWoodcuttingScript extends Script {
                 }
                 GameObject tree = Rs2GameObject.findObject(config.TREE().getName(), true, config.distanceToStray(), getInitialPlayerLocation());
 
-                if (tree != null){
-                    if(Rs2GameObject.interact(tree, config.TREE().getAction())){
-                        if(config.walkBack().equals(WoodcuttingWalkBack.LAST_LOCATION)){
+                if (tree != null) {
+                    if (Rs2GameObject.interact(tree, config.TREE().getAction())) {
+                        if (config.walkBack().equals(WoodcuttingWalkBack.LAST_LOCATION)) {
                             returnPoint = Microbot.getClient().getLocalPlayer().getWorldLocation();
                         }
                     }
-                }else {
+                } else {
                     System.out.println("No trees in zone");
                 }
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
-        }, 0, 600, TimeUnit.MILLISECONDS);
+        }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
     }
 
-    /*
-        TODO: fix PoseAnimation Check to ensure next firemake starts when the first one finishes or spams fires
-     */
     private boolean burnLog(AutoWoodcuttingConfig config) {
-        if (Rs2Player.isStandingOnObject()){
-            WorldPoint fireSpot = fireSpot(3);
-            Rs2Walker.walkTo(fireSpot);
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(fireSpot));
+        WorldPoint fireSpot;
+        if (Rs2Player.isStandingOnGameObject()) {
+            fireSpot = fireSpot(1);
+            Rs2Walker.walkTo(fireSpot, 0);
+        } else {
+            fireSpot = Rs2Player.getWorldLocation();
         }
-        Rs2Inventory.use("tinderbox");
-        sleep(Random.random(300,600));
-        Rs2Inventory.use(config.TREE().getLog());
-        // Rs2Player.waitForAnimation(12000);
-        sleepUntil(() -> Microbot.getClient().getLocalPlayer().getPoseAnimation() != AnimationID.FIREMAKING, 12000);
+        sleepUntil(() -> Rs2Player.getWorldLocation().equals(fireSpot));
+        if (!isFiremake()) {
+            Rs2Inventory.use("tinderbox");
+            sleep(Random.random(300, 600));
+            Rs2Inventory.use(config.TREE().getLog());
+            sleep(2100);
+        }
+        sleepUntil(() -> !isFiremake() && !Rs2Player.isStandingOnGameObject() && !Rs2Player.isStandingOnGroundItem());
         return true;
     }
 
     private WorldPoint fireSpot(int distance) {
         List<WorldPoint> worldPoints = Rs2Tile.getWalkableTilesAroundPlayer(distance);
 
-        for(WorldPoint walkablePoint : worldPoints) {
-            if (doesFireExists(walkablePoint) || (Rs2GameObject.getGameObject(walkablePoint) != null)) { continue; }
-            return walkablePoint;
+        for (WorldPoint walkablePoint : worldPoints) {
+            if (Rs2GameObject.getGameObject(walkablePoint) == null) {
+                return walkablePoint;
+            }
         }
 
-        fireSpot(distance+1);
+        fireSpot(distance + 1);
 
         return null;
     }
 
-    private boolean doesFireExists(WorldPoint worldPoint) {
-        List<GameObject> gameObjectsWithinDistance = Rs2GameObject.getGameObjectsWithinDistance(1, worldPoint);
-        if(gameObjectsWithinDistance.isEmpty()) { return false; }
-
-        for(GameObject gameObject : gameObjectsWithinDistance) {
-            if ((gameObject.getId() == ObjectID.FIRE_26185) && gameObject.getWorldLocation() == worldPoint){
-                return true;
-            }
-        }
-        return false;
+    private boolean isFiremake() {
+        return Rs2Player.getAnimation() == AnimationID.FIREMAKING;
     }
 
     private void walkBack(AutoWoodcuttingConfig config) {
-        if(config.walkBack().equals(WoodcuttingWalkBack.INITIAL_LOCATION)){
-            if(config.randomReturnTile()){
+        if (config.walkBack().equals(WoodcuttingWalkBack.INITIAL_LOCATION)) {
+            if (config.randomReturnTile()) {
                 Rs2Walker.walkTo(new WorldPoint(initialPlayerLocation.getX() - Random.random(-1, 1), initialPlayerLocation.getY() - Random.random(-1, 1), initialPlayerLocation.getPlane()));
             } else {
                 Rs2Walker.walkTo(initialPlayerLocation);
             }
             sleepUntil(() -> Rs2Walker.isNear(initialPlayerLocation));
         }
-        if(config.walkBack().equals(WoodcuttingWalkBack.LAST_LOCATION)){
-            if(config.randomReturnTile()){
+        if (config.walkBack().equals(WoodcuttingWalkBack.LAST_LOCATION)) {
+            if (config.randomReturnTile()) {
                 Rs2Walker.walkTo(new WorldPoint(returnPoint.getX() - Random.random(-1, 1), returnPoint.getY() - Random.random(-1, 1), returnPoint.getPlane()));
             } else {
                 Rs2Walker.walkTo(returnPoint);
