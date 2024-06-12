@@ -107,7 +107,10 @@ public enum BankLocation {
                 if (hasLineOfSight && Rs2Player.isMember()) return true;
                 boolean hasVarrockHardTasks = Microbot.getClientThread().runOnClientThread(() -> Microbot.getClient().getVarbitValue(Varbits.DIARY_VARROCK_HARD) == 1);
                 boolean hasMasteredCooking = Microbot.getClient().getRealSkillLevel(Skill.COOKING) == 99;
-                boolean isWearingCooksGuild = Rs2Equipment.isWearing("chef's hat") || (Rs2Equipment.isWearing("cooking cape") || Rs2Equipment.isWearing("cooking hood")) || (Rs2Equipment.isWearing("max cape") || (Rs2Equipment.isWearing("max hood")));
+                boolean isWearingCooksGuild = Rs2Equipment.isWearing("chef's hat") ||
+                        (Rs2Equipment.isWearing("cooking cape") || Rs2Equipment.isWearing("cooking hood")) ||
+                        (Rs2Equipment.isWearing("max cape") || Rs2Equipment.isWearing("max hood")) ||
+                        (Rs2Equipment.isWearing("varrock armour 3") || Rs2Equipment.isWearing("varrock armour 4"));
                 return isWearingCooksGuild && (hasMasteredCooking || hasVarrockHardTasks) && Rs2Player.isMember();
             default:
                 return true;
