@@ -10,7 +10,6 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 @Getter
 @RequiredArgsConstructor
