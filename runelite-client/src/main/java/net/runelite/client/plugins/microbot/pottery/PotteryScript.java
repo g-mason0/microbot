@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.pottery;
 import net.runelite.api.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.pottery.enums.HumidifyAction;
 import net.runelite.client.plugins.microbot.pottery.enums.HumidifyItems;
 import net.runelite.client.plugins.microbot.pottery.enums.PotteryItems;
 import net.runelite.client.plugins.microbot.pottery.enums.State;
@@ -31,6 +32,9 @@ public class PotteryScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+
+                if (Rs2Player.isMoving() || Rs2Player.isAnimating() || Microbot.pauseAllScripts) return;
+
                 long startTime = System.currentTimeMillis();
 
                 if (init) {
@@ -68,9 +72,8 @@ public class PotteryScript extends Script {
                         boolean hasSoftClay = Rs2Inventory.contains("soft clay");
 
                         Rs2Walker.walkTo(config.location().getWheelWorldPoint(), 4);
-                        if (!isNearPotteryWheel(config, 4)) {
+                        if (!isNearPotteryWheel(config, 4))
                             return;
-                        }
 
                         Rs2Inventory.useItemOnObject(ItemID.SOFT_CLAY, config.location().getWheelObjectID());
                         Rs2Widget.sleepUntilHasWidget("how many do you wish to make?");
@@ -86,7 +89,6 @@ public class PotteryScript extends Script {
                         }
 
                         int unfiredPotteryCount = Rs2Inventory.count(config.potteryItem().getUnfiredItemName());
-                        boolean hasUnfiredPotteryItem = Rs2Inventory.contains(config.potteryItem().getUnfiredItemName());
                         Rs2Walker.walkMiniMap(config.location().getOvenWorldPoint(), 2);
                         if (!isNearPotteryOven(config, 4)) {
                             return;
@@ -96,7 +98,7 @@ public class PotteryScript extends Script {
                         Rs2Widget.sleepUntilHasWidget("What would you like to fire in the oven?");
 
                         Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                        sleepUntil(() -> !hasUnfiredPotteryItem && !Rs2Player.isInteracting(), (5000 * unfiredPotteryCount));
+                        sleepUntil(() -> !hasUnfiredPotteryItem(config) && !Rs2Player.isInteracting(), (5000 * unfiredPotteryCount));
                         state = State.BANK;
                         break;
                     case REFILLING:
@@ -115,7 +117,7 @@ public class PotteryScript extends Script {
                         sleep(Random.random(1200, 1800));
 
                         Rs2Inventory.useItemOnObject(config.humidifyItem().getItemID(), config.location().getWaterPointObjectID());
-                        sleepUntil(() -> !Rs2Inventory.contains(config.humidifyItem().getItemName()) && !Rs2Player.isInteracting(), 28000);
+                        sleepUntil(() -> !hasEmptyHumidifyItem(config) && !Rs2Player.isInteracting(), 28000);
                         state = State.BANK;
                         break;
                     case BANK:
@@ -295,4 +297,9 @@ public class PotteryScript extends Script {
     private int getHumidifyCount(PotteryConfig config){
         return Rs2Inventory.count(config.humidifyItem().getFilledItemID());
     }
+
+    private HumidifyAction getHumidifyAction(PotteryConfig config){
+        return config.humidifyAction();
+    }
+
 }
