@@ -33,7 +33,7 @@ public enum PotteryLocations {
             ObjectID.POTTERS_WHEEL_14887, new WorldPoint(2593, 3322, 0),
             ObjectID.POTTERY_OVEN_11601, new WorldPoint(2590, 3326, 0),
             ObjectID.SINK_874, new WorldPoint(2572, 3332, 0),
-            0, new WorldPoint(0, 0, 0)
+            ObjectID.WELL_884, new WorldPoint(2641, 3369, 0)
     ),
     RELLEKKA (
             ObjectID.POTTERS_WHEEL, new WorldPoint(2619, 3659, 0),

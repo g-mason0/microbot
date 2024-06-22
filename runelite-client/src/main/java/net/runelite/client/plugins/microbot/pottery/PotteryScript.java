@@ -21,13 +21,19 @@ import java.util.concurrent.TimeUnit;
 
 public class PotteryScript extends Script {
     public static double version = 1.0;
-
-    boolean init = true;
     public State state;
-    public boolean isCraftingSoftClay = false;
 
     public boolean run(PotteryConfig config) {
         Microbot.enableAutoRunOn = false;
+        Rs2Camera.setAngle(0);
+        getPotteryState(config);
+
+        if (!config.location().hasRequirements()) {
+            Microbot.showMessage("You do not meet the requirements for this location");
+            shutdown();
+            return false;
+        }
+
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -37,27 +43,13 @@ public class PotteryScript extends Script {
 
                 long startTime = System.currentTimeMillis();
 
-                if (init) {
-                    getPotteryState(config);
-                    Rs2Camera.setAngle(0);
-                }
-
-                if (!config.location().hasRequirements()) {
-                    Microbot.showMessage("You do not meet the requirements for this location");
-                    shutdown();
-                    return;
-                }
-
                 switch (state) {
                     case HUMIDIFY:
-                        boolean hasClayInInventory = Rs2Inventory.hasItemAmount("clay", 14, false, true);
-                        boolean hasHumidifyItemInInventory = Rs2Inventory.hasItemAmount(config.humidifyItem().getFilledItemName(), 14);
-
-                        if (hasClayInInventory && hasHumidifyItemInInventory) {
+                        if (getClayItemCount() >= 1 && getHumidifyItemCount(config) >= getClayItemCount()) {
                             Rs2Inventory.combine("clay", config.humidifyItem().getFilledItemName());
                             sleep(Random.random(600, 800));
                             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                            sleepUntil(() -> !Rs2Inventory.contains("clay") && !Rs2Player.isAnimating(), 16000);
+                            Rs2Inventory.waitForInventoryChanges();
                             return;
                         }
 
@@ -68,105 +60,106 @@ public class PotteryScript extends Script {
                             Microbot.showMessage("You do not meet the requirements for this item");
                         }
 
-                        int softClayCount = Rs2Inventory.count("soft clay");
-                        boolean hasSoftClay = Rs2Inventory.contains("soft clay");
+                        if (!isNearPotteryWheel(config, 4)) {
+                            Rs2Walker.walkTo(config.location().getWheelWorldPoint(), 4);
+                            sleepUntil(() -> isNearPotteryWheel(config, 4));
+                        }
 
-                        Rs2Walker.walkTo(config.location().getWheelWorldPoint(), 4);
-                        if (!isNearPotteryWheel(config, 4))
-                            return;
+                        Rs2Walker.walkFastCanvas(config.location().getWheelWorldPoint());
+                        sleepUntil(() -> isNearPotteryWheel(config, 1));
 
                         Rs2Inventory.useItemOnObject(ItemID.SOFT_CLAY, config.location().getWheelObjectID());
                         Rs2Widget.sleepUntilHasWidget("how many do you wish to make?");
 
                         Rs2Widget.clickWidget(config.potteryItem().getUnfiredWheelWidgetID());
 
-                        sleepUntil(() -> !hasSoftClay && !Rs2Player.isInteracting(), (2500 * softClayCount));
+                        sleepUntil(() -> getSoftClayItemCount() == 0 && PotteryPlugin.hasPlayerStoppedAnimating());
                         state = State.COOKING;
                         break;
                     case COOKING:
                         if (!config.potteryItem().hasRequirements()) {
                             Microbot.showMessage("You do not meet the requirements for this item");
-                        }
-
-                        int unfiredPotteryCount = Rs2Inventory.count(config.potteryItem().getUnfiredItemName());
-                        Rs2Walker.walkMiniMap(config.location().getOvenWorldPoint(), 2);
-                        if (!isNearPotteryOven(config, 4)) {
+                            shutdown();
                             return;
                         }
+
+                        if (!isNearPotteryOven(config, 4)) {
+                            Rs2Walker.walkTo(config.location().getOvenWorldPoint(), 4);
+                            sleepUntil(() -> isNearPotteryOven(config, 4));
+                        }
+
+                        Rs2Walker.walkFastCanvas(config.location().getOvenWorldPoint());
+                        sleepUntil(() -> isNearPotteryOven(config, 1));
 
                         Rs2Inventory.useItemOnObject(config.potteryItem().getUnfiredItemID(), config.location().getOvenObjectID());
                         Rs2Widget.sleepUntilHasWidget("What would you like to fire in the oven?");
 
                         Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                        sleepUntil(() -> !hasUnfiredPotteryItem(config) && !Rs2Player.isInteracting(), (5000 * unfiredPotteryCount));
+                        sleepUntil(() -> getUnfiredPotteryItemCount(config) == 0 && PotteryPlugin.hasPlayerStoppedAnimating());
                         state = State.BANK;
                         break;
                     case REFILLING:
-                        if(config.humidifyItem().equals(HumidifyItems.BUCKET)){
+                        if (config.humidifyItem().equals(HumidifyItems.BUCKET)) {
                             Rs2Walker.walkTo(config.location().getWellWaterPoint(), 4);
-                            if (!isNearWellWaterPoint(config, 4)) {
-                                return;
-                            }
+                            if (!isNearWellWaterPoint(config, 4)) return;
+
+                            Rs2Inventory.useItemOnObject(config.humidifyItem().getItemID(), config.location().getWellWaterPointObjectID());
                         } else {
                             Rs2Walker.walkTo(config.location().getWaterPoint(), 4);
-                            if (!isNearWaterPoint(config, 4)) {
-                                return;
-                            }
+                            if (!isNearWaterPoint(config, 4)) return;
+
+                            Rs2Inventory.useItemOnObject(config.humidifyItem().getItemID(), config.location().getWaterPointObjectID());
                         }
 
-                        sleep(Random.random(1200, 1800));
-
-                        Rs2Inventory.useItemOnObject(config.humidifyItem().getItemID(), config.location().getWaterPointObjectID());
-                        sleepUntil(() -> !hasEmptyHumidifyItem(config) && !Rs2Player.isInteracting(), 28000);
+                        sleepUntil(() -> getEmptyHumidifyItemCount(config) == 0 & PotteryPlugin.hasPlayerStoppedAnimating());
                         state = State.BANK;
                         break;
                     case BANK:
                         boolean isBankOpen = Rs2Bank.walkToBankAndUseBank();
-                        if (!isBankOpen || !Rs2Bank.isOpen()) {
-                            return;
-                        }
+                        if (!isBankOpen || !Rs2Bank.isOpen()) return;
 
                         Rs2Bank.depositAll();
 
-                        boolean hasRequiredHumidifyItemInBank = Rs2Bank.hasBankItem(config.humidifyItem().getFilledItemName(), 14);
-                        boolean hasEmptyHumidifyItemInBank = Rs2Bank.hasBankItem(config.humidifyItem().getItemName(), true);
-                        boolean hasClayItemInBank = Rs2Bank.hasBankItem("clay", 14, true);
-                        boolean hasSoftItemClayInBank = Rs2Bank.hasBankItem("soft clay", true);
-
-                        if(!hasClayItemInBank && !hasSoftItemClayInBank){
+                        if (getClayItemCount() == 0 && getSoftClayItemCount() == 0) {
                             Rs2Bank.closeBank();
                             Microbot.showMessage("No clay and soft clay found in bank");
                             shutdown();
                             break;
                         }
 
-                        if(hasEmptyHumidifyItemInBank && config.forceRefill()){
-                            Rs2Bank.withdrawAll(config.humidifyItem().getItemName(), true);
-                            Rs2Bank.closeBank();
-                            state = State.REFILLING;
-                            break;
-                        }
-
-                        if (hasClayItemInBank) {
-                            if(!hasRequiredHumidifyItemInBank){
-                                if (hasEmptyHumidifyItemInBank) {
-                                    Rs2Bank.withdrawAll(config.humidifyItem().getItemName(), true);
-                                    Rs2Bank.closeBank();
-                                    state = State.REFILLING;
-                                } else {
-                                    Rs2Bank.closeBank();
-                                    Microbot.showMessage("Not enough " + config.humidifyItem().getItemName() + " found in bank");
-                                    shutdown();
-                                }
+                        if (getHumidifyAction(config).equals(HumidifyAction.ITEM)) {
+                            if (getEmptyHumidifyItemCount(config) > 0 && config.forceRefill()) {
+                                Rs2Bank.withdrawAll(config.humidifyItem().getItemName(), true);
+                                Rs2Bank.closeBank();
+                                state = State.REFILLING;
                                 break;
                             }
 
-                            Rs2Bank.withdrawX(config.humidifyItem().getFilledItemName(), 14);
-                            Rs2Bank.withdrawX("clay", 14);
-                            Rs2Bank.closeBank();
-                            sleep(Random.random(600, 800));
-                            state = State.HUMIDIFY;
-                            break;
+                            if (getClayItemCount() >= 1) {
+                                if (getHumidifyItemCount(config) < getClayItemCount()) {
+                                    if (getEmptyHumidifyItemCount(config) == 0) {
+                                        Rs2Bank.closeBank();
+                                        Microbot.showMessage("Not enough " + config.humidifyItem().getItemName() + " found in bank");
+                                        shutdown();
+                                        return;
+                                    }
+                                    Rs2Bank.withdrawAll(config.humidifyItem().getItemName(), true);
+                                    Rs2Bank.closeBank();
+                                    state = State.REFILLING;
+                                    break;
+                                }
+
+                                Rs2Bank.withdrawX(config.humidifyItem().getFilledItemName(), 14);
+                                Rs2Bank.withdrawX("clay", 14);
+                                Rs2Bank.closeBank();
+                                sleep(Random.random(600, 800));
+                                state = State.HUMIDIFY;
+                                break;
+                            }
+                        } else {
+                            /*
+                             TODO: implement logic for using Humidify Lunar Spell
+                            */
                         }
 
                         if (config.potteryItem().equals(PotteryItems.CUP)) {
@@ -197,68 +190,63 @@ public class PotteryScript extends Script {
     }
 
     private void getPotteryState(PotteryConfig config) {
-        boolean hasClayItem = Rs2Inventory.hasItem("clay", true);
-        boolean hasSoftClayItem = Rs2Inventory.hasItem("soft clay");
-
-        if (hasEmptyHumidifyItem(config) && (getEmptyHumidifyCount(config) + getHumidifyCount(config) + Rs2Inventory.getEmptySlots() == 28)) {
-            init = false;
+        if (getEmptyHumidifyItemCount(config) > 0 && (getEmptyHumidifyItemCount(config) + getHumidifyItemCount(config) + Rs2Inventory.getEmptySlots() == 28)) {
             state = State.REFILLING;
             return;
         }
 
+        if (getSoftClayItemCount() > 0 && getUnfiredPotteryItemCount(config) > 0) {
+            state = State.SPINNING;
+            return;
+        }
+
+        if (getUnfiredPotteryItemCount(config) > 0 && getUnfiredPotteryItemCount(config) > 0) {
+            state = State.COOKING;
+            return;
+        }
+
         if (Rs2Bank.isNearBank(8)) {
-            if (hasClayItem && hasHumidifyItem(config)) {
-                init = false;
+            if (getClayItemCount() > 0 && getHumidifyItemCount(config) > 0) {
                 state = State.HUMIDIFY;
                 return;
             }
-            init = false;
             state = State.BANK;
             return;
         }
 
         if (isNearWaterPoint(config, 8) || isNearWellWaterPoint(config, 8)) {
-            if (!hasEmptyHumidifyItem(config)) {
-                init = false;
-                state = State.BANK;
+            if (getEmptyHumidifyItemCount(config) == 0) {
+                state = State.REFILLING;
                 return;
             }
-            init = false;
-            state = State.REFILLING;
+            state = State.BANK;
             return;
         }
 
         if (isNearPotteryWheel(config, 8)) {
-            if (hasSoftClayItem) {
-                init = false;
+            if (getSoftClayItemCount() > 0) {
                 state = State.SPINNING;
                 return;
             }
 
-            if (hasUnfiredPotteryItem(config)) {
-                init = false;
+            if (getUnfiredPotteryItemCount(config) > 0 && getSoftClayItemCount() < 0) {
                 state = State.COOKING;
                 return;
             }
 
-            init = false;
             state = State.BANK;
             return;
         }
 
         if (isNearPotteryOven(config, 8)) {
-            if (!hasUnfiredPotteryItem(config)) {
-                init = false;
-                state = State.BANK;
+            if (getUnfiredPotteryItemCount(config) == 0) {
+                state = State.COOKING;
                 return;
             }
-
-            init = false;
-            state = State.COOKING;
+            state = State.BANK;
             return;
         }
 
-        init = false;
         state = State.BANK;
     }
 
@@ -278,28 +266,49 @@ public class PotteryScript extends Script {
         return Rs2Player.getWorldLocation().distanceTo(config.location().getOvenWorldPoint()) <= distance;
     }
 
-    private boolean hasEmptyHumidifyItem(PotteryConfig config) {
-        return Rs2Inventory.hasItem(config.humidifyItem().getItemID());
-    }
-
-    private boolean hasHumidifyItem(PotteryConfig config) {
-        return Rs2Inventory.hasItem(config.humidifyItem().getFilledItemID());
-    }
-
-    private boolean hasUnfiredPotteryItem(PotteryConfig config) {
-        return Rs2Inventory.hasItem(config.potteryItem().getUnfiredItemID());
-    }
-
-    private int getEmptyHumidifyCount(PotteryConfig config){
+    private int getEmptyHumidifyItemCount(PotteryConfig config) {
+        if (Rs2Bank.isOpen()) {
+            return Rs2Bank.count(config.humidifyItem().getItemName());
+        }
         return Rs2Inventory.count(config.humidifyItem().getItemID());
     }
 
-    private int getHumidifyCount(PotteryConfig config){
+    private int getHumidifyItemCount(PotteryConfig config) {
+        if (Rs2Bank.isOpen()) {
+            return Rs2Bank.count(config.humidifyItem().getFilledItemName());
+        }
         return Rs2Inventory.count(config.humidifyItem().getFilledItemID());
     }
 
-    private HumidifyAction getHumidifyAction(PotteryConfig config){
-        return config.humidifyAction();
+    private int getUnfiredPotteryItemCount(PotteryConfig config) {
+        if (Rs2Bank.isOpen()) {
+            return Rs2Bank.count(config.potteryItem().getUnfiredItemName());
+        }
+        return Rs2Inventory.count(config.potteryItem().getUnfiredItemID());
     }
 
+    private int getPotteryItemCount(PotteryConfig config) {
+        if (Rs2Bank.isOpen()) {
+            return Rs2Bank.count(config.potteryItem().getFiredItemName());
+        }
+        return Rs2Inventory.count(config.potteryItem().getFiredItemID());
+    }
+
+    private int getClayItemCount() {
+        if (Rs2Bank.isOpen()) {
+            return Rs2Bank.count("clay", true);
+        }
+        return Rs2Inventory.count(ItemID.CLAY);
+    }
+
+    private int getSoftClayItemCount() {
+        if (Rs2Bank.isOpen()) {
+            return Rs2Bank.count("soft clay", true);
+        }
+        return Rs2Inventory.count(ItemID.SOFT_CLAY);
+    }
+
+    private HumidifyAction getHumidifyAction(PotteryConfig config) {
+        return config.humidifyAction();
+    }
 }

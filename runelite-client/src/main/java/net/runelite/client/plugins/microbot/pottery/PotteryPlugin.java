@@ -2,20 +2,22 @@ package net.runelite.client.plugins.microbot.pottery;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.AnimationID;
 import net.runelite.api.Client;
-import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.Player;
+import net.runelite.api.events.AnimationChanged;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.pottery.enums.State;
 import net.runelite.client.plugins.microbot.util.mouse.VirtualMouse;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.time.Instant;
 
 @PluginDescriptor(
         name = PluginDescriptor.GMason + "Pottery",
@@ -25,24 +27,28 @@ import java.awt.*;
 )
 @Slf4j
 public class PotteryPlugin extends Plugin {
+    private static long lastAnimationTime = 0;
+    @Inject
+    PotteryScript potteryScript;
     @Inject
     private PotteryConfig config;
     @Inject
     private Client client;
     @Inject
     private ClientThread clientThread;
-    @Provides
-    PotteryConfig provideConfig(ConfigManager configManager) {
-        return configManager.getConfig(PotteryConfig.class);
-    }
-
     @Inject
     private OverlayManager overlayManager;
     @Inject
     private PotteryOverlay overlay;
 
-    @Inject
-    PotteryScript potteryScript;
+    public static boolean hasPlayerStoppedAnimating() {
+        return lastAnimationTime != 0 && (System.currentTimeMillis() - lastAnimationTime) > 8000;
+    }
+
+    @Provides
+    PotteryConfig provideConfig(ConfigManager configManager) {
+        return configManager.getConfig(PotteryConfig.class);
+    }
 
     @Override
     protected void startUp() throws AWTException {
@@ -62,6 +68,18 @@ public class PotteryPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onItemContainerChanged(ItemContainerChanged event){
+    public void onAnimationChanged(AnimationChanged event) {
+        if (!(event.getActor() instanceof Player)) {
+            return;
+        }
+
+        Player player = (Player) event.getActor();
+        if (player != client.getLocalPlayer()) {
+            return;
+        }
+
+        if (player.getAnimation() == AnimationID.CRAFTING_POTTERS_WHEEL || player.getAnimation() == AnimationID.CRAFTING_POTTERY_OVEN || player.getAnimation() == AnimationID.LOOKING_INTO) {
+            lastAnimationTime = System.currentTimeMillis();
+        }
     }
 }
