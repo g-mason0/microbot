@@ -42,7 +42,10 @@ public class PotteryPlugin extends Plugin {
     private PotteryOverlay overlay;
 
     public static boolean hasPlayerStoppedAnimating() {
-        return lastAnimationTime != 0 && (System.currentTimeMillis() - lastAnimationTime) > 8000;
+        if(lastAnimationTime == 0 || (System.currentTimeMillis() - lastAnimationTime) < 8000)
+            return false;
+        lastAnimationTime = 0;
+        return true;
     }
 
     @Provides

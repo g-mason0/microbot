@@ -19,10 +19,23 @@ public interface PotteryConfig extends Config {
     String generalSection = "general";
 
     @ConfigItem(
+            keyName = "Guide",
+            name = "How to use",
+            description = "How to use this plugin",
+            position = 0,
+            section = generalSection
+    )
+    default String GUIDE() {
+        return "Start anywhere, script will check inventory & will goto bank if needed\n" +
+                "Make sure you have clay (or soft clay) in your bank!\n" +
+                "Make sure you have empty humidifying items in bank!";
+    }
+
+    @ConfigItem(
             keyName = "location",
             name = "Location",
             description = "Choose the location where to train",
-            position = 0,
+            position = 1,
             section = generalSection
     )
     default PotteryLocations location()
@@ -35,7 +48,7 @@ public interface PotteryConfig extends Config {
             keyName = "potteryItem",
             name = "Pottery Item",
             description = "Choose pottery item to create",
-            position = 1,
+            position = 2,
             section = generalSection
     )
     default PotteryItems potteryItem()
