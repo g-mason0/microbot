@@ -27,7 +27,6 @@ import java.time.Instant;
 )
 @Slf4j
 public class PotteryPlugin extends Plugin {
-    private static long lastAnimationTime = 0;
     @Inject
     PotteryScript potteryScript;
     @Inject
@@ -40,13 +39,6 @@ public class PotteryPlugin extends Plugin {
     private OverlayManager overlayManager;
     @Inject
     private PotteryOverlay overlay;
-
-    public static boolean hasPlayerStoppedAnimating() {
-        if(lastAnimationTime == 0 || (System.currentTimeMillis() - lastAnimationTime) < 8000)
-            return false;
-        lastAnimationTime = 0;
-        return true;
-    }
 
     @Provides
     PotteryConfig provideConfig(ConfigManager configManager) {
@@ -81,8 +73,9 @@ public class PotteryPlugin extends Plugin {
             return;
         }
 
-        if (player.getAnimation() == AnimationID.CRAFTING_POTTERS_WHEEL || player.getAnimation() == AnimationID.CRAFTING_POTTERY_OVEN || player.getAnimation() == AnimationID.LOOKING_INTO) {
-            lastAnimationTime = System.currentTimeMillis();
+        int CRAFTING_POTTERY_OVEN_1317 = 1317;
+        if (player.getAnimation() == AnimationID.CRAFTING_POTTERS_WHEEL || player.getAnimation() == AnimationID.CRAFTING_POTTERY_OVEN || player.getAnimation() == CRAFTING_POTTERY_OVEN_1317 || player.getAnimation() == AnimationID.LOOKING_INTO) {
+            potteryScript.lastAnimationTime = System.currentTimeMillis();
         }
     }
 }

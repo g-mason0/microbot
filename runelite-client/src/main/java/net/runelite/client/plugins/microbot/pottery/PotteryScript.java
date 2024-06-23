@@ -13,19 +13,35 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.settings.Rs2Settings;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
 import java.util.concurrent.TimeUnit;
 
+import static net.runelite.client.plugins.microbot.util.Global.sleepUntilTrue;
+
 public class PotteryScript extends Script {
     public static double version = 1.0;
     public State state;
+    public long lastAnimationTime = 0;
 
     public boolean run(PotteryConfig config) {
         Microbot.enableAutoRunOn = false;
+        if (!Microbot.isLoggedIn()) return false;
+
         Rs2Camera.setAngle(0);
+        Rs2Camera.setPitch(0.81f);
+        if (!Rs2Settings.isHideRoofsEnabled()) {
+            Rs2Settings.hideRoofs();
+            sleepUntilTrue(Rs2Settings::isHideRoofsEnabled, 500, 15000);
+        }
+        if (Rs2Settings.isLevelUpNotificationsEnabled()) {
+            Rs2Settings.disableLevelUpNotifications();
+            sleepUntilTrue(() -> !Rs2Settings.isLevelUpNotificationsEnabled(), 500, 15000);
+        }
+
         getPotteryState(config);
 
         if (!config.location().hasRequirements()) {
@@ -36,7 +52,6 @@ public class PotteryScript extends Script {
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
 
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating() || Microbot.pauseAllScripts) return;
@@ -49,7 +64,7 @@ public class PotteryScript extends Script {
                             Rs2Inventory.combine("clay", config.humidifyItem().getFilledItemName());
                             sleep(Random.random(600, 800));
                             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                            Rs2Inventory.waitForInventoryChanges();
+                            sleepUntilTrue(() -> getClayItemCount() == 0, 500, 150000);
                             return;
                         }
 
@@ -58,22 +73,24 @@ public class PotteryScript extends Script {
                     case SPINNING:
                         if (!config.potteryItem().hasRequirements()) {
                             Microbot.showMessage("You do not meet the requirements for this item");
+                            shutdown();
+                            return;
                         }
 
                         if (!isNearPotteryWheel(config, 4)) {
                             Rs2Walker.walkTo(config.location().getWheelWorldPoint(), 4);
-                            sleepUntil(() -> isNearPotteryWheel(config, 4));
+                            return;
                         }
 
                         Rs2Walker.walkFastCanvas(config.location().getWheelWorldPoint());
-                        sleepUntil(() -> isNearPotteryWheel(config, 1));
+                        sleepUntil(() -> isNearPotteryWheel(config, 0));
 
                         Rs2Inventory.useItemOnObject(ItemID.SOFT_CLAY, config.location().getWheelObjectID());
                         Rs2Widget.sleepUntilHasWidget("how many do you wish to make?");
 
                         Rs2Widget.clickWidget(config.potteryItem().getUnfiredWheelWidgetID());
 
-                        sleepUntil(() -> getSoftClayItemCount() == 0 && PotteryPlugin.hasPlayerStoppedAnimating());
+                        sleepUntilTrue(() -> getSoftClayItemCount() == 0 && hasPlayerStoppedAnimating(), 500, 150000);
                         state = State.COOKING;
                         break;
                     case COOKING:
@@ -85,17 +102,17 @@ public class PotteryScript extends Script {
 
                         if (!isNearPotteryOven(config, 4)) {
                             Rs2Walker.walkTo(config.location().getOvenWorldPoint(), 4);
-                            sleepUntil(() -> isNearPotteryOven(config, 4));
+                            return;
                         }
 
                         Rs2Walker.walkFastCanvas(config.location().getOvenWorldPoint());
-                        sleepUntil(() -> isNearPotteryOven(config, 1));
+                        sleepUntil(() -> isNearPotteryOven(config, 0));
 
                         Rs2Inventory.useItemOnObject(config.potteryItem().getUnfiredItemID(), config.location().getOvenObjectID());
                         Rs2Widget.sleepUntilHasWidget("What would you like to fire in the oven?");
 
                         Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                        sleepUntil(() -> getUnfiredPotteryItemCount(config) == 0 && PotteryPlugin.hasPlayerStoppedAnimating());
+                        sleepUntilTrue(() -> getUnfiredPotteryItemCount(config) == 0 && hasPlayerStoppedAnimating(), 500, 150000);
                         state = State.BANK;
                         break;
                     case REFILLING:
@@ -111,7 +128,7 @@ public class PotteryScript extends Script {
                             Rs2Inventory.useItemOnObject(config.humidifyItem().getItemID(), config.location().getWaterPointObjectID());
                         }
 
-                        sleepUntil(() -> getEmptyHumidifyItemCount(config) == 0 & PotteryPlugin.hasPlayerStoppedAnimating());
+                        sleepUntilTrue(() -> getEmptyHumidifyItemCount(config) == 0 & hasPlayerStoppedAnimating(), 500, 150000);
                         state = State.BANK;
                         break;
                     case BANK:
@@ -250,20 +267,27 @@ public class PotteryScript extends Script {
         state = State.BANK;
     }
 
+    private boolean hasPlayerStoppedAnimating() {
+        if (lastAnimationTime == 0 || (System.currentTimeMillis() - lastAnimationTime) < 5000)
+            return false;
+        lastAnimationTime = 0;
+        return true;
+    }
+
     private boolean isNearWaterPoint(PotteryConfig config, int distance) {
-        return Rs2Player.getWorldLocation().distanceTo(config.location().getWaterPoint()) <= distance;
+        return Rs2Player.getWorldLocation().distanceTo(config.location().getWaterPoint()) <= distance && !Rs2Player.isMoving();
     }
 
     private boolean isNearWellWaterPoint(PotteryConfig config, int distance) {
-        return Rs2Player.getWorldLocation().distanceTo(config.location().getWellWaterPoint()) <= distance;
+        return Rs2Player.getWorldLocation().distanceTo(config.location().getWellWaterPoint()) <= distance && !Rs2Player.isMoving();
     }
 
     private boolean isNearPotteryWheel(PotteryConfig config, int distance) {
-        return Rs2Player.getWorldLocation().distanceTo(config.location().getWheelWorldPoint()) <= distance;
+        return Rs2Player.getWorldLocation().distanceTo(config.location().getWheelWorldPoint()) <= distance && !Rs2Player.isMoving();
     }
 
     private boolean isNearPotteryOven(PotteryConfig config, int distance) {
-        return Rs2Player.getWorldLocation().distanceTo(config.location().getOvenWorldPoint()) <= distance;
+        return Rs2Player.getWorldLocation().distanceTo(config.location().getOvenWorldPoint()) <= distance && !Rs2Player.isMoving();
     }
 
     private int getEmptyHumidifyItemCount(PotteryConfig config) {
