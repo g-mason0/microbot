@@ -38,14 +38,14 @@ public enum PotteryLocations {
     RELLEKKA (
             ObjectID.POTTERS_WHEEL, new WorldPoint(2619, 3659, 0),
             ObjectID.POTTERY_OVEN, new WorldPoint(2617, 3662, 0),
-            0, new WorldPoint(0, 0, 0),
+            ObjectID.SINCLAIR_FAMILY_FOUNTAIN, new WorldPoint(2746, 3564, 0),
             ObjectID.WELL_8927, new WorldPoint(2667, 3661, 0)
     ),
     CRAFTING_GUILD (
             ObjectID.POTTERS_WHEEL_14887, new WorldPoint(2936, 3289, 0),
             ObjectID.POTTERY_OVEN_14888, new WorldPoint(2930, 3291, 0),
             ObjectID.SINK_9684, new WorldPoint(4928, 3136, 0),
-            0, new WorldPoint(0, 0, 0)
+            ObjectID.WELL_24150, new WorldPoint(2986, 3316, 0)
     );
 
     private final int wheelObjectID;

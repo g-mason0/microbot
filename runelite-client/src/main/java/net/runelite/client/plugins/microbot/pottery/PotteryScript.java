@@ -26,10 +26,10 @@ public class PotteryScript extends Script {
     public static double version = 1.0;
     public State state;
     public long lastAnimationTime = 0;
+    boolean init = true;
 
     public boolean run(PotteryConfig config) {
         Microbot.enableAutoRunOn = false;
-        if (!Microbot.isLoggedIn()) return false;
 
         Rs2Camera.setAngle(0);
         Rs2Camera.setPitch(0.81f);
@@ -42,8 +42,6 @@ public class PotteryScript extends Script {
             sleepUntilTrue(() -> !Rs2Settings.isLevelUpNotificationsEnabled(), 500, 15000);
         }
 
-        getPotteryState(config);
-
         if (!config.location().hasRequirements()) {
             Microbot.showMessage("You do not meet the requirements for this location");
             shutdown();
@@ -53,6 +51,11 @@ public class PotteryScript extends Script {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!super.run()) return;
+                if (!Microbot.isLoggedIn()) return;
+
+                if (init) {
+                    getPotteryState(config);
+                }
 
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating() || Microbot.pauseAllScripts) return;
 
@@ -86,7 +89,7 @@ public class PotteryScript extends Script {
                         sleepUntil(() -> isNearPotteryWheel(config, 0));
 
                         Rs2Inventory.useItemOnObject(ItemID.SOFT_CLAY, config.location().getWheelObjectID());
-                        Rs2Widget.sleepUntilHasWidget("how many do you wish to make?");
+                        sleepUntil(() -> !Rs2Player.isMoving() && Rs2Widget.findWidget("how many do you wish to make?", null, false) != null);
 
                         Rs2Widget.clickWidget(config.potteryItem().getUnfiredWheelWidgetID());
 
@@ -109,7 +112,7 @@ public class PotteryScript extends Script {
                         sleepUntil(() -> isNearPotteryOven(config, 0));
 
                         Rs2Inventory.useItemOnObject(config.potteryItem().getUnfiredItemID(), config.location().getOvenObjectID());
-                        Rs2Widget.sleepUntilHasWidget("What would you like to fire in the oven?");
+                        sleepUntil(() -> !Rs2Player.isMoving() && Rs2Widget.findWidget("What would you like to fire in the oven?", null, false) != null);
 
                         Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                         sleepUntilTrue(() -> getUnfiredPotteryItemCount(config) == 0 && hasPlayerStoppedAnimating(), 500, 150000);
@@ -209,62 +212,75 @@ public class PotteryScript extends Script {
     private void getPotteryState(PotteryConfig config) {
         if (getEmptyHumidifyItemCount(config) > 0 && (getEmptyHumidifyItemCount(config) + getHumidifyItemCount(config) + Rs2Inventory.getEmptySlots() == 28)) {
             state = State.REFILLING;
+            init = false;
             return;
         }
 
         if (getSoftClayItemCount() > 0 && getUnfiredPotteryItemCount(config) > 0) {
             state = State.SPINNING;
+            init = false;
             return;
         }
 
         if (getUnfiredPotteryItemCount(config) > 0 && getUnfiredPotteryItemCount(config) > 0) {
             state = State.COOKING;
+            init = false;
             return;
         }
 
         if (Rs2Bank.isNearBank(8)) {
             if (getClayItemCount() > 0 && getHumidifyItemCount(config) > 0) {
                 state = State.HUMIDIFY;
+                init = false;
                 return;
             }
             state = State.BANK;
+            init = false;
             return;
         }
 
         if (isNearWaterPoint(config, 8) || isNearWellWaterPoint(config, 8)) {
             if (getEmptyHumidifyItemCount(config) == 0) {
                 state = State.REFILLING;
+                init = false;
                 return;
             }
             state = State.BANK;
+            init = false;
             return;
         }
 
         if (isNearPotteryWheel(config, 8)) {
             if (getSoftClayItemCount() > 0) {
                 state = State.SPINNING;
+                init = false;
                 return;
             }
 
             if (getUnfiredPotteryItemCount(config) > 0 && getSoftClayItemCount() < 0) {
                 state = State.COOKING;
+                init = false;
                 return;
             }
 
             state = State.BANK;
+            init = false;
             return;
         }
 
         if (isNearPotteryOven(config, 8)) {
             if (getUnfiredPotteryItemCount(config) == 0) {
                 state = State.COOKING;
+                init = false;
                 return;
             }
             state = State.BANK;
+            init = false;
             return;
         }
 
         state = State.BANK;
+        init = false;
     }
 
     private boolean hasPlayerStoppedAnimating() {
