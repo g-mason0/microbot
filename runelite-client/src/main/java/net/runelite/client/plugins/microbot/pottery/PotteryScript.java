@@ -30,30 +30,29 @@ public class PotteryScript extends Script {
 
     public boolean run(PotteryConfig config) {
         Microbot.enableAutoRunOn = false;
-
-        Rs2Camera.setAngle(0);
-        Rs2Camera.setPitch(0.81f);
-        if (!Rs2Settings.isHideRoofsEnabled()) {
-            Rs2Settings.hideRoofs();
-            sleepUntilTrue(Rs2Settings::isHideRoofsEnabled, 500, 15000);
-        }
-        if (Rs2Settings.isLevelUpNotificationsEnabled()) {
-            Rs2Settings.disableLevelUpNotifications();
-            sleepUntilTrue(() -> !Rs2Settings.isLevelUpNotificationsEnabled(), 500, 15000);
-        }
-
-        if (!config.location().hasRequirements()) {
-            Microbot.showMessage("You do not meet the requirements for this location");
-            shutdown();
-            return false;
-        }
-
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!super.run()) return;
                 if (!Microbot.isLoggedIn()) return;
 
                 if (init) {
+                    Rs2Camera.setAngle(0);
+                    Rs2Camera.setPitch(0.81f);
+                    if (!Rs2Settings.isHideRoofsEnabled()) {
+                        Rs2Settings.hideRoofs();
+                        sleepUntilTrue(Rs2Settings::isHideRoofsEnabled, 500, 15000);
+                    }
+                    if (Rs2Settings.isLevelUpNotificationsEnabled()) {
+                        Rs2Settings.disableLevelUpNotifications();
+                        sleepUntilTrue(() -> !Rs2Settings.isLevelUpNotificationsEnabled(), 500, 15000);
+                    }
+
+                    if (!config.location().hasRequirements()) {
+                        Microbot.showMessage("You do not meet the requirements for this location");
+                        shutdown();
+                        return;
+                    }
+                    
                     getPotteryState(config);
                 }
 
@@ -176,10 +175,6 @@ public class PotteryScript extends Script {
                                 state = State.HUMIDIFY;
                                 break;
                             }
-                        } else {
-                            /*
-                             TODO: implement logic for using Humidify Lunar Spell
-                            */
                         }
 
                         if (config.potteryItem().equals(PotteryItems.CUP)) {

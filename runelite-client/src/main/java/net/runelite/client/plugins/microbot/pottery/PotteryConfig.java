@@ -62,13 +62,15 @@ public interface PotteryConfig extends Config {
             position = 1
     )
     String humidifySection = "humidify";
-
+    
+    // Hiding this for now until I can test with Lunar spellbook & rune pouch
     @ConfigItem(
             keyName = "humidifyAction",
             name = "Humidify Action",
             description = "Choose action used to Humidify clay to soft clay",
             position = 0,
-            section = humidifySection
+            section = humidifySection,
+            hidden = true
     )
     default HumidifyAction humidifyAction() { return HumidifyAction.ITEM; }
 

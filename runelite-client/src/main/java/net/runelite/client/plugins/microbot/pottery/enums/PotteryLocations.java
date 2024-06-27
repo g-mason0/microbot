@@ -15,19 +15,12 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 public enum PotteryLocations {
     /*
         TODO: Gather DARKMEYER Object IDs & WorldPoints
-        TODO: Add additional waterpoints & well waterpoints
      */
     BARBARIAN_VILLAGE (
             ObjectID.POTTERS_WHEEL_14887, new WorldPoint(3086, 3410, 0),
             ObjectID.POTTERY_OVEN_11601, new WorldPoint(3085, 3408, 0),
-            0, new WorldPoint(0, 0, 0),
-            ObjectID.WELL_884, new WorldPoint(3083, 3502, 0)
-    ),
-    DARKMEYER (
-            0, new WorldPoint(0, 0, 0),
-            0, new WorldPoint(0, 0, 0),
-            0, new WorldPoint(0, 0, 0),
-            0, new WorldPoint(0, 0, 0)
+            ObjectID.SINK_12279, new WorldPoint(3078, 3490, 0),
+            ObjectID.WELL_884, new WorldPoint(3083, 3504, 0)
     ),
     EAST_ARDOUGNE (
             ObjectID.POTTERS_WHEEL_14887, new WorldPoint(2593, 3322, 0),
@@ -60,7 +53,6 @@ public enum PotteryLocations {
 
     public boolean hasRequirements() {
         switch (this) {
-            case DARKMEYER:
             case EAST_ARDOUGNE:
                 return Rs2Player.isMember();
             case RELLEKKA:
