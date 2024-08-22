@@ -6,10 +6,11 @@ import net.runelite.api.TileObject;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.cooking.AutoCookingConfig;
-import net.runelite.client.plugins.microbot.cooking.AutoCookingPlugin;
 import net.runelite.client.plugins.microbot.cooking.enums.CookingAreaType;
 import net.runelite.client.plugins.microbot.cooking.enums.CookingItem;
 import net.runelite.client.plugins.microbot.cooking.enums.CookingLocation;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
@@ -44,11 +45,14 @@ public class AutoCookingScript extends Script {
     public boolean run(AutoCookingConfig config) {
         Microbot.enableAutoRunOn = false;
         CookingItem cookingItem = config.cookingItem();
+        Rs2Antiban.resetAntibanSettings();
+        Rs2Antiban.antibanSetupTemplates.applyCookingSetup();
         init = true;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Rs2AntibanSettings.actionCooldownActive) return;
 
                 if (init) {
                     if (initialPlayerLocation == null) {
@@ -93,6 +97,9 @@ public class AutoCookingScript extends Script {
 
                             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                             Microbot.status = "Cooking " + cookingItem.getRawItemName();
+                            
+                            Rs2Antiban.actionCooldown();
+                            Rs2Antiban.takeMicroBreakByChance();
 
                             sleepUntil(() -> (Rs2Player.getAnimation() != AnimationID.IDLE));
                             sleepUntilTrue(() -> (!hasRawItem(cookingItem) && !Rs2Player.isAnimating(3500))
