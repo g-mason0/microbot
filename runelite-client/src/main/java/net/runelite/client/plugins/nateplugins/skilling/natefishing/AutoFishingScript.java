@@ -3,6 +3,8 @@ package net.runelite.client.plugins.nateplugins.skilling.natefishing;
 import net.runelite.api.NPC;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -33,11 +35,13 @@ public class AutoFishingScript extends Script {
         List<String> itemNames = Arrays.stream(config.itemsToBank().split(",")).map(String::toLowerCase).collect(Collectors.toList());
         state = State.FISHING;
         Fish fish = config.fish();
+        Rs2Antiban.resetAntibanSettings();
+        Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-
                 if (!super.run()) return;
                 if (!Microbot.isLoggedIn()) return;
+                if (Rs2AntibanSettings.actionCooldownActive) return;
 
                 if (initialPlayerLocation == null) {
                     initialPlayerLocation = Rs2Player.getWorldLocation();
@@ -63,6 +67,8 @@ public class AutoFishingScript extends Script {
                             validateInteractable(fishingSpot);
                         }
                         if (Rs2Npc.interact(fishingSpot, fish.getAction())) {
+                            Rs2Antiban.actionCooldown();
+                            Rs2Antiban.takeMicroBreakByChance();
                             sleepUntilTrue(() -> !Rs2Player.isAnimating(), 500, 30000);
                         }
                         break;
